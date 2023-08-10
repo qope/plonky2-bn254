@@ -8,18 +8,16 @@ use plonky2::{
     iop::{
         generator::{GeneratedValues, SimpleGenerator},
         target::{BoolTarget, Target},
-        witness::{PartialWitness, PartitionWitness, Witness},
+        witness::{PartialWitness, PartitionWitness, Witness, WitnessWrite},
     },
-    plonk::circuit_builder::CircuitBuilder, util::serialization::{Buffer, IoError},
+    plonk::circuit_builder::CircuitBuilder,
+    util::serialization::{Buffer, IoError},
 };
 use plonky2_ecdsa::gadgets::{
     biguint::{BigUintTarget, GeneratedValuesBigUint, WitnessBigUint},
     nonnative::{CircuitBuilderNonNative, NonNativeTarget},
 };
-use plonky2_u32::{
-    gadgets::{arithmetic_u32::U32Target, range_check::range_check_u32_circuit},
-    witness::WitnessU32,
-};
+use plonky2_u32::gadgets::{arithmetic_u32::U32Target, range_check::range_check_u32_circuit};
 use std::marker::PhantomData;
 
 use crate::fields::{
@@ -36,7 +34,7 @@ pub struct FqTarget<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> FqTarget<F, D> {
-    pub fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
+    pub fn empty(builder: &mut CircuitBuilder<F, D>) -> Self {
         let target = builder.add_virtual_nonnative_target();
         Self {
             target,
@@ -44,15 +42,15 @@ impl<F: RichField + Extendable<D>, const D: usize> FqTarget<F, D> {
         }
     }
 
-    pub fn target(&self) -> NonNativeTarget<Bn254Base> {
+    pub fn to_nonnative_target(&self) -> NonNativeTarget<Bn254Base> {
         self.target.clone()
     }
 
-    pub fn from_targets(builder: &mut CircuitBuilder<F, D>, targets: &[Target]) -> Self {
-        let num_limbs = CircuitBuilder::<F, D>::num_nonnative_limbs::<Bn254Base>();
-        assert_eq!(targets.len(), num_limbs);
-        let limbs = targets.iter().cloned().map(|a| U32Target(a)).collect_vec();
-        let biguint = BigUintTarget { limbs };
+    pub fn from_limbs(builder: &mut CircuitBuilder<F, D>, limbs: &[Target; 8]) -> Self {
+        let limbs = limbs.map(|a| U32Target(a));
+        let biguint = BigUintTarget {
+            limbs: limbs.to_vec(),
+        };
         let target = builder.reduce(&biguint);
         Self {
             target,
@@ -60,15 +58,27 @@ impl<F: RichField + Extendable<D>, const D: usize> FqTarget<F, D> {
         }
     }
 
-    pub fn limbs(&self) -> Vec<U32Target> {
-        self.target.value.limbs.iter().cloned().collect_vec()
+    pub fn to_limbs_without_pad(&self) -> Vec<Target> {
+        self.target
+            .value
+            .limbs
+            .iter()
+            .cloned()
+            .map(|x| x.0)
+            .collect_vec()
     }
 
-    pub fn num_max_limbs() -> usize {
-        CircuitBuilder::<F, D>::num_nonnative_limbs::<Bn254Base>()
+    pub fn to_limbs(&self, builder: &mut CircuitBuilder<F, D>) -> [Target; 8] {
+        let mut limbs = self.to_limbs_without_pad();
+        limbs.extend(vec![builder.zero(); 8 - limbs.len()]);
+        limbs.try_into().unwrap()
     }
 
-    pub fn construct(value: NonNativeTarget<Bn254Base>) -> Self {
+    pub fn num_limbs() -> usize {
+        8
+    }
+
+    pub fn new(value: NonNativeTarget<Bn254Base>) -> Self {
         Self {
             target: value,
             _marker: PhantomData,
@@ -193,7 +203,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FqTarget<F, D> {
     // if self is not square, this fails
     // the return value is ensured to be sgn0(x) = sgn0(sgn)
     pub fn sqrt_with_sgn(&self, builder: &mut CircuitBuilder<F, D>, sgn: BoolTarget) -> Self {
-        let sqrt = Self::new(builder);
+        let sqrt = Self::empty(builder);
         builder.add_simple_generator(FqSqrtGenerator::<F, D> {
             x: self.clone(),
             sgn: sgn.clone(),
@@ -254,12 +264,11 @@ impl<F: RichField + Extendable<D>, const D: usize> FqTarget<F, D> {
 
 impl<F: RichField + Extendable<D>, const D: usize> FqTarget<F, D> {
     pub fn to_vec(&self) -> Vec<Target> {
-        self.limbs().iter().cloned().map(|x| x.0).collect()
+        self.to_limbs_without_pad()
     }
 
     pub fn from_vec(builder: &mut CircuitBuilder<F, D>, input: &[Target]) -> Self {
-        let num_limbs = CircuitBuilder::<F, D>::num_nonnative_limbs::<Bn254Base>();
-        assert_eq!(input.len(), num_limbs);
+        assert_eq!(input.len(), 8);
         let limbs = input.iter().cloned().map(|a| U32Target(a)).collect_vec();
         range_check_u32_circuit(builder, limbs.clone());
         let biguint = BigUintTarget { limbs };
@@ -271,19 +280,17 @@ impl<F: RichField + Extendable<D>, const D: usize> FqTarget<F, D> {
     }
 
     pub fn set_witness(&self, pw: &mut PartialWitness<F>, value: &Fq) {
+        let limbs_t = self.to_limbs_without_pad().clone();
         let value_b: BigUint = value.clone().into();
         let mut limbs = value_b.to_u32_digits();
-
         // padding
-        let num_lims = Self::num_max_limbs();
-        let to_padd = num_lims - limbs.len();
-        limbs.extend(vec![0; to_padd]);
+        limbs.extend(vec![0; limbs_t.len() - limbs.len()]);
 
-        self.limbs()
+        self.to_limbs_without_pad()
             .iter()
             .cloned()
             .zip(limbs)
-            .map(|(l_t, l)| pw.set_u32_target(l_t, l))
+            .map(|(l_t, l)| pw.set_target(l_t, F::from_canonical_u32(l)))
             .for_each(drop);
     }
 }
@@ -317,7 +324,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for FqSqrt
         out_buffer.set_biguint_target(&self.sqrt.target.value, &sqrt_x_biguint);
     }
 
-     fn id(&self) -> std::string::String {
+    fn id(&self) -> std::string::String {
         "FqSqrtGenerator".to_string()
     }
 
@@ -347,7 +354,6 @@ mod tests {
     use rand::Rng;
 
     use crate::fields::native::sgn0_fq;
-    use crate::traits::recursive_circuit_target::RecursiveCircuitTarget;
 
     use super::FqTarget;
 

@@ -2,7 +2,7 @@ use ark_bn254::G1Affine;
 use ark_std::UniformRand;
 use itertools::Itertools;
 use plonky2::{
-    field::{extension::Extendable, types::Field},
+    field::extension::Extendable,
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
@@ -10,14 +10,10 @@ use plonky2::{
     },
     plonk::circuit_builder::CircuitBuilder,
 };
-use plonky2_ecdsa::gadgets::{
-    biguint::BigUintTarget, nonnative::CircuitBuilderNonNative,
-    split_nonnative::CircuitBuilderSplit,
-};
-use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
+use plonky2_ecdsa::gadgets::nonnative::CircuitBuilderNonNative;
 use rand::SeedableRng;
 
-use crate::fields::{bn254base::Bn254Base, fq_target::FqTarget, fr_target::FrTarget};
+use crate::fields::{fq_target::FqTarget, fr_target::FrTarget};
 
 #[derive(Clone, Debug)]
 pub struct G1Target<F: RichField + Extendable<D>, const D: usize> {
@@ -27,8 +23,8 @@ pub struct G1Target<F: RichField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> G1Target<F, D> {
     pub fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
-        let x = FqTarget::new(builder);
-        let y = FqTarget::new(builder);
+        let x = FqTarget::empty(builder);
+        let y = FqTarget::empty(builder);
         G1Target { x, y }
     }
 
@@ -141,115 +137,6 @@ impl<F: RichField + Extendable<D>, const D: usize> G1Target<F, D> {
 
         r
     }
-
-    fn repeated_double(&self, builder: &mut CircuitBuilder<F, D>, n: usize) -> Self {
-        let mut result = self.clone();
-
-        for _ in 0..n {
-            result = result.double(builder);
-        }
-
-        result
-    }
-
-    fn random_access_curve_points(
-        builder: &mut CircuitBuilder<F, D>,
-        access_index: Target,
-        v: Vec<Self>,
-    ) -> Self {
-        let num_limbs = Bn254Base::BITS / 32;
-        let zero = builder.zero_u32();
-        let x_limbs: Vec<Vec<_>> = (0..num_limbs)
-            .map(|i| {
-                v.iter()
-                    .map(|p| p.x.target.value.limbs.get(i).unwrap_or(&zero).0)
-                    .collect()
-            })
-            .collect();
-        let y_limbs: Vec<Vec<_>> = (0..num_limbs)
-            .map(|i| {
-                v.iter()
-                    .map(|p| p.y.target.value.limbs.get(i).unwrap_or(&zero).0)
-                    .collect()
-            })
-            .collect();
-
-        let selected_x_limbs: Vec<_> = x_limbs
-            .iter()
-            .map(|limbs| U32Target(builder.random_access(access_index, limbs.clone())))
-            .collect();
-        let selected_y_limbs: Vec<_> = y_limbs
-            .iter()
-            .map(|limbs| U32Target(builder.random_access(access_index, limbs.clone())))
-            .collect();
-
-        let x = builder.biguint_to_nonnative(&BigUintTarget {
-            limbs: selected_x_limbs,
-        });
-        let y = builder.biguint_to_nonnative(&BigUintTarget {
-            limbs: selected_y_limbs,
-        });
-        Self {
-            x: FqTarget::construct(x),
-            y: FqTarget::construct(y),
-        }
-    }
-}
-
-pub fn curve_msm_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    p: &G1Target<F, D>,
-    q: &G1Target<F, D>,
-    n: &FrTarget<F, D>,
-    m: &FrTarget<F, D>,
-) -> G1Target<F, D> {
-    let limbs_n = builder.split_nonnative_to_2_bit_limbs(&n.target);
-    let limbs_m = builder.split_nonnative_to_2_bit_limbs(&m.target);
-    assert_eq!(limbs_n.len(), limbs_m.len());
-    let num_limbs = limbs_n.len();
-
-    let mut rng = rand::rngs::StdRng::seed_from_u64(42);
-    let rando = G1Affine::rand(&mut rng);
-    let rando_t = G1Target::constant(builder, rando);
-    let neg_rando = G1Target::constant(builder, -rando);
-
-    // Precomputes `precomputation[i + 4*j] = i*p + j*q` for `i,j=0..4`.
-    let mut precomputation = vec![p.clone(); 16];
-    let mut cur_p = rando_t.clone();
-    let mut cur_q = rando_t.clone();
-    for i in 0..4 {
-        precomputation[i] = cur_p.clone();
-        precomputation[4 * i] = cur_q.clone();
-        cur_p = cur_p.add(builder, p);
-        cur_q = cur_q.add(builder, q);
-    }
-    for i in 1..4 {
-        precomputation[i] = precomputation[i].add(builder, &neg_rando);
-        precomputation[4 * i] = precomputation[4 * i].add(builder, &neg_rando);
-    }
-    for i in 1..4 {
-        for j in 1..4 {
-            precomputation[i + 4 * j] = precomputation[i].add(builder, &precomputation[4 * j]);
-        }
-    }
-
-    let four = builder.constant(F::from_canonical_usize(4));
-
-    let zero = builder.zero();
-    let mut result = rando_t;
-    for (limb_n, limb_m) in limbs_n.into_iter().zip(limbs_m).rev() {
-        result = result.repeated_double(builder, 2);
-        let index = builder.mul_add(four, limb_m, limb_n);
-        let r = G1Target::random_access_curve_points(builder, index, precomputation.clone());
-        let is_zero = builder.is_equal(index, zero);
-        let should_add = builder.not(is_zero);
-        result = result.conditional_add(builder, &r, &should_add);
-    }
-    let starting_point_multiplied = (0..2 * num_limbs).fold(rando, |acc, _| (acc + acc).into());
-    let to_add = G1Target::constant(builder, -starting_point_multiplied);
-    result = result.add(builder, &to_add);
-
-    result
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> G1Target<F, D> {
@@ -258,10 +145,9 @@ impl<F: RichField + Extendable<D>, const D: usize> G1Target<F, D> {
     }
 
     pub fn from_vec(builder: &mut CircuitBuilder<F, D>, input: &[Target]) -> Self {
-        let num_lims = FqTarget::<F, D>::num_max_limbs();
-        assert_eq!(input.len(), num_lims * 2);
+        assert_eq!(input.len(), 16);
         let mut input = input.to_vec();
-        let x_raw = input.drain(0..num_lims).collect_vec();
+        let x_raw = input.drain(0..8).collect_vec();
         let y_raw = input;
         Self {
             x: FqTarget::from_vec(builder, &x_raw),
@@ -292,7 +178,7 @@ mod tests {
 
     use crate::fields::fr_target::FrTarget;
 
-    use super::{curve_msm_circuit, G1Target};
+    use super::G1Target;
 
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
@@ -362,36 +248,6 @@ mod tests {
         let pw = PartialWitness::new();
         let data = builder.build::<C>();
         let _proof = data.prove(pw);
-    }
-
-    #[test]
-    fn test_msm() {
-        let rng = &mut rand::thread_rng();
-
-        let p = G1Affine::rand(rng);
-        let q = G1Affine::rand(rng);
-        let n = Fr::rand(rng);
-        let m = Fr::rand(rng);
-
-        let c_expected: G1Affine = (p * n + q * m).into();
-
-        let config = CircuitConfig::standard_ecc_config();
-        let mut builder = CircuitBuilder::<F, D>::new(config);
-        let p_t = G1Target::constant(&mut builder, p);
-        let q_t = G1Target::constant(&mut builder, q);
-        let n_t = FrTarget::constant(&mut builder, n);
-        let m_t = FrTarget::constant(&mut builder, m);
-
-        let c_t = curve_msm_circuit(&mut builder, &p_t, &q_t, &n_t, &m_t);
-
-        let c_expected_t = G1Target::constant(&mut builder, c_expected);
-
-        G1Target::connect(&mut builder, &c_expected_t, &c_t);
-
-        let pw = PartialWitness::new();
-        let data = builder.build::<C>();
-        let _proof = data.prove(pw);
-        dbg!(data.common.degree_bits());
     }
 
     #[test]

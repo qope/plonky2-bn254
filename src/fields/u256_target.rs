@@ -15,6 +15,7 @@ use plonky2_u32::gadgets::arithmetic_u32::U32Target;
 
 use super::fr_target::FrTarget;
 
+#[derive(Clone, Debug)]
 pub struct U256Target<F: RichField + Extendable<D>, const D: usize> {
     pub limbs: [Target; 8],
     _marker: PhantomData<F>,

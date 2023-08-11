@@ -19,13 +19,13 @@ pub struct G2Target<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> G2Target<F, D> {
-    pub fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
+    pub fn empty(builder: &mut CircuitBuilder<F, D>) -> Self {
         let x = Fq2Target::empty(builder);
         let y = Fq2Target::empty(builder);
         G2Target { x, y }
     }
 
-    pub fn construct(x: Fq2Target<F, D>, y: Fq2Target<F, D>) -> Self {
+    pub fn new(x: Fq2Target<F, D>, y: Fq2Target<F, D>) -> Self {
         G2Target { x, y }
     }
 

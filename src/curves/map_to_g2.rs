@@ -32,7 +32,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn map_to_g2_without_mul_coeff(u: Fq2) -> G2Affine {
+pub fn map_to_g2_without_coeff_mul(u: Fq2) -> G2Affine {
     // constants
     let Z = Fq2::one();
     let B = Fq2::new(
@@ -103,7 +103,7 @@ pub fn map_to_g2_without_mul_coeff(u: Fq2) -> G2Affine {
 }
 
 #[allow(non_snake_case)]
-pub fn map_to_g2_without_mul_coeff_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub fn map_to_g2_without_coeff_mul_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     u: &Fq2Target<F, D>,
 ) -> G2Target<F, D> {
@@ -156,7 +156,7 @@ pub fn map_to_g2_without_mul_coeff_circuit<F: RichField + Extendable<D>, const D
     let sgn_u = u.sgn0(builder);
     let y = gx.sqrt_with_sgn(builder, sgn_u);
 
-    G2Target::construct(x, y)
+    G2Target::new(x, y)
 }
 
 #[cfg(test)]
@@ -173,7 +173,7 @@ mod tests {
     };
 
     use crate::{
-        curves::map_to_g2::{map_to_g2_without_mul_coeff, map_to_g2_without_mul_coeff_circuit},
+        curves::map_to_g2::{map_to_g2_without_coeff_mul, map_to_g2_without_coeff_mul_circuit},
         fields::fq2_target::Fq2Target,
     };
 
@@ -186,14 +186,14 @@ mod tests {
 
         let rng = &mut rand::thread_rng();
         let a: Fq2 = Fq2::rand(rng);
-        let p_expected = map_to_g2_without_mul_coeff(a);
+        let p_expected = map_to_g2_without_coeff_mul(a);
         let x_expected = p_expected.x;
         let y_expected = p_expected.y;
 
         let config = CircuitConfig::standard_ecc_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let a_t = Fq2Target::constant(&mut builder, a);
-        let p_t = map_to_g2_without_mul_coeff_circuit(&mut builder, &a_t);
+        let p_t = map_to_g2_without_coeff_mul_circuit(&mut builder, &a_t);
         let x_t = p_t.x;
         let y_t = p_t.y;
         let x_expected_t = Fq2Target::constant(&mut builder, x_expected);

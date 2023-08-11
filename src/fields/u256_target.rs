@@ -24,6 +24,12 @@ impl<F: RichField + Extendable<D>, const D: usize> U256Target<F, D> {
             _marker: PhantomData,
         }
     }
+
+    pub fn empty(builder: &mut CircuitBuilder<F, D>) -> Self {
+        let limbs = builder.add_virtual_target_arr();
+        Self::new(limbs)
+    }
+
     pub fn connect(builder: &mut CircuitBuilder<F, D>, lhs: &Self, rhs: &Self) {
         for i in 0..8 {
             builder.connect(lhs.limbs[i], rhs.limbs[i]);

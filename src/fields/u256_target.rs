@@ -38,6 +38,17 @@ impl<F: RichField + Extendable<D>, const D: usize> U256Target<F, D> {
         let limbs = self.limbs.map(|x| U32Target(x)).to_vec();
         BigUintTarget { limbs }
     }
+
+    pub fn to_vec(&self) -> Vec<Target> {
+        self.limbs.to_vec()
+    }
+
+    pub fn from_vec(input: &[Target]) -> Self {
+        assert!(input.len() == 8);
+        let limbs: [Target; 8] = input.try_into().unwrap();
+        Self::new(limbs)
+    }
+
     pub fn set_witness(&self, pw: &mut PartialWitness<F>, value: &BigUint) {
         let mut limbs = value.to_u32_digits();
         limbs.extend(vec![0; 8 - limbs.len()]);

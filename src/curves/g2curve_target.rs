@@ -5,7 +5,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
-        witness::PartialWitness,
+        witness::WitnessWrite,
     },
     plonk::circuit_builder::CircuitBuilder,
 };
@@ -126,7 +126,7 @@ impl<F: RichField + Extendable<D>, const D: usize> G2Target<F, D> {
         }
     }
 
-    pub fn set_witness(&self, pw: &mut PartialWitness<F>, value: &G2Affine) {
+    pub fn set_witness<W: WitnessWrite<F>>(&self, pw: &mut W, value: &G2Affine) {
         self.x.set_witness(pw, &value.x);
         self.y.set_witness(pw, &value.y);
     }

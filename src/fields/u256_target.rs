@@ -4,10 +4,7 @@ use num_bigint::BigUint;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    iop::{
-        target::Target,
-        witness::{PartialWitness, WitnessWrite},
-    },
+    iop::{target::Target, witness::WitnessWrite},
     plonk::circuit_builder::CircuitBuilder,
 };
 use plonky2_ecdsa::gadgets::biguint::BigUintTarget;
@@ -50,7 +47,7 @@ impl<F: RichField + Extendable<D>, const D: usize> U256Target<F, D> {
         Self::new(limbs)
     }
 
-    pub fn set_witness(&self, pw: &mut PartialWitness<F>, value: &BigUint) {
+    pub fn set_witness<W: WitnessWrite<F>>(&self, pw: &mut W, value: &BigUint) {
         let mut limbs = value.to_u32_digits();
         limbs.extend(vec![0; 8 - limbs.len()]);
         for i in 0..8 {

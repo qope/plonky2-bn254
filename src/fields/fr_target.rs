@@ -7,7 +7,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
-        witness::{PartialWitness, WitnessWrite},
+        witness::WitnessWrite,
     },
     plonk::circuit_builder::CircuitBuilder,
 };
@@ -208,7 +208,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FrTarget<F, D> {
         }
     }
 
-    pub fn set_witness(&self, pw: &mut PartialWitness<F>, value: &Fr) {
+    pub fn set_witness<W: WitnessWrite<F>>(&self, pw: &mut W, value: &Fr) {
         let limbs_t = self.to_limbs_without_pad().clone();
         let value_b: BigUint = value.clone().into();
         let mut limbs = value_b.to_u32_digits();

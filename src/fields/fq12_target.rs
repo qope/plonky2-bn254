@@ -8,7 +8,7 @@ use plonky2::{
     iop::{
         generator::{GeneratedValues, SimpleGenerator},
         target::{BoolTarget, Target},
-        witness::{PartialWitness, PartitionWitness},
+        witness::{PartitionWitness, WitnessWrite},
     },
     plonk::circuit_builder::CircuitBuilder,
     util::serialization::{Buffer, IoError},
@@ -301,7 +301,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq12Target<F, D> {
         }
     }
 
-    pub fn set_witness(&self, pw: &mut PartialWitness<F>, value: &Fq12) {
+    pub fn set_witness<W: WitnessWrite<F>>(&self, pw: &mut W, value: &Fq12) {
         let my_value: MyFq12 = value.clone().into();
         self.coeffs
             .iter()

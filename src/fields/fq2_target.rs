@@ -9,7 +9,7 @@ use plonky2::{
     iop::{
         generator::{GeneratedValues, SimpleGenerator},
         target::{BoolTarget, Target},
-        witness::{PartialWitness, PartitionWitness, Witness},
+        witness::{PartitionWitness, Witness, WitnessWrite},
     },
     plonk::circuit_builder::CircuitBuilder,
     util::serialization::{Buffer, IoError},
@@ -398,7 +398,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq2Target<F, D> {
         }
     }
 
-    pub fn set_witness(&self, pw: &mut PartialWitness<F>, value: &Fq2) {
+    pub fn set_witness<W: WitnessWrite<F>>(&self, pw: &mut W, value: &Fq2) {
         let coeffs = vec![value.c0, value.c1];
         self.coeffs
             .iter()

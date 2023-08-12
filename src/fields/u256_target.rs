@@ -10,7 +10,7 @@ use plonky2::{
 use plonky2_ecdsa::gadgets::biguint::BigUintTarget;
 use plonky2_u32::gadgets::arithmetic_u32::U32Target;
 
-use super::fr_target::FrTarget;
+use super::{fq_target::FqTarget, fr_target::FrTarget};
 
 #[derive(Clone, Debug)]
 pub struct U256Target<F: RichField + Extendable<D>, const D: usize> {
@@ -34,6 +34,9 @@ impl<F: RichField + Extendable<D>, const D: usize> U256Target<F, D> {
         for i in 0..8 {
             builder.connect(lhs.limbs[i], rhs.limbs[i]);
         }
+    }
+    pub fn to_fq(&self, builder: &mut CircuitBuilder<F, D>) -> FqTarget<F, D> {
+        FqTarget::from_limbs(builder, &self.limbs)
     }
     pub fn to_fr(&self, builder: &mut CircuitBuilder<F, D>) -> FrTarget<F, D> {
         FrTarget::from_limbs(builder, &self.limbs)

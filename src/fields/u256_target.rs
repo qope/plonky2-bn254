@@ -24,6 +24,18 @@ impl<F: RichField + Extendable<D>, const D: usize> U256Target<F, D> {
             _marker: PhantomData,
         }
     }
+    pub fn constant(builder: &mut CircuitBuilder<F, D>, value: &BigUint) -> Self {
+        let mut limbs = value.to_u32_digits();
+        assert!(limbs.len() <= 8);
+        limbs.extend(vec![0; 8 - limbs.len()]);
+        let limbs: [Target; 8] = limbs
+            .iter()
+            .map(|x| builder.constant(F::from_canonical_u32(*x)))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        Self::new(limbs)
+    }
 
     pub fn empty(builder: &mut CircuitBuilder<F, D>) -> Self {
         let limbs = builder.add_virtual_target_arr();

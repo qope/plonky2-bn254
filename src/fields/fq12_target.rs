@@ -29,7 +29,7 @@ pub struct Fq12Target<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Fq12Target<F, D> {
-    pub fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
+    pub fn empty(builder: &mut CircuitBuilder<F, D>) -> Self {
         let coeffs = [(); 12]
             .iter()
             .map(|_| FqTarget::empty(builder))
@@ -39,7 +39,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq12Target<F, D> {
         Fq12Target { coeffs }
     }
 
-    pub fn construct(coeffs: Vec<FqTarget<F, D>>) -> Self {
+    pub fn new(coeffs: Vec<FqTarget<F, D>>) -> Self {
         Fq12Target {
             coeffs: coeffs.try_into().unwrap(),
         }
@@ -194,7 +194,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq12Target<F, D> {
     }
 
     pub fn inv(&self, builder: &mut CircuitBuilder<F, D>) -> Self {
-        let inv = Self::new(builder);
+        let inv = Self::empty(builder);
         builder.add_simple_generator(Fq12InverseGenerator::<F, D> {
             x: self.clone(),
             inv: inv.clone(),

@@ -158,7 +158,12 @@ pub fn from_biguint_to_fq(x: BigUint) -> Fq {
 
 pub fn sgn0_fq(x: Fq) -> bool {
     let y: BigUint = x.into();
-    y.to_u32_digits()[0] & 1 == 1
+    let digits = y.to_u32_digits();
+    if digits.len() == 0 {
+        return false;
+    } else {
+        digits[0] & 1 == 1
+    }
 }
 
 pub fn sgn0_fq2(x: Fq2) -> bool {

@@ -13,12 +13,19 @@ ark-std = "0.4.0"
 num-bigint = "0.4.3"
 num-traits = "0.2"
 rand = "0.8.5"
-plonky2_ecdsa={git="https://github.com/InternetMaximalism/plonky2", rev="541e127"}
-plonky2_u32={git="https://github.com/InternetMaximalism/plonky2", rev="541e127"}
-plonky2={git="https://github.com/InternetMaximalism/plonky2", rev="541e127"}
+plonky2_ecdsa = { git = "https://github.com/0xPolygonZero/plonky2-ecdsa", features = ["parallel"] }
+plonky2_u32 = "0.1.0"
+plonky2 = { git="https://github.com/nikkolasg/plonky2" }
 num = "0.4.0"
 serde = { version = "1.0", features = ["derive"] }
 itertools = "0.10.5"
 anyhow = "1.0.71"
 hex = "0.4.3"
 bitvec = "1"
+
+[patch.crates-io]
+plonky2 = { git = "https://github.com/nikkolasg/plonky2" }
+plonky2_u32 = { git = "https://github.com/nikkolasg/plonky2-u32" }
+
+[patch."https://github.com/0xPolygonZero/plonky2-ecdsa"]
+plonky2_ecdsa = { git = "https://github.com/nikkolasg/plonky2-ecdsa" }

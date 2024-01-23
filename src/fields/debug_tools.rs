@@ -9,7 +9,7 @@ use plonky2::{
         target::Target,
         witness::{PartitionWitness, Witness},
     },
-    plonk::circuit_builder::CircuitBuilder,
+    plonk::{circuit_builder::CircuitBuilder, circuit_data::CommonCircuitData},
     util::serialization::{Buffer, IoError},
 };
 
@@ -23,7 +23,9 @@ struct FqPrintGenerator {
     annotation: String,
 }
 
-impl<F: PrimeField64> SimpleGenerator<F> for FqPrintGenerator {
+impl<F: PrimeField64 + RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
+    for FqPrintGenerator
+{
     fn dependencies(&self) -> Vec<Target> {
         self.targets.clone()
     }
@@ -49,11 +51,21 @@ impl<F: PrimeField64> SimpleGenerator<F> for FqPrintGenerator {
         "FqPrintGenerator".to_string()
     }
 
-    fn serialize(&self, _: &mut Vec<u8>) -> Result<(), IoError> {
+    fn serialize(&self, _: &mut Vec<u8>, _: &CommonCircuitData<F, D>) -> Result<(), IoError> {
         unimplemented!()
     }
-    fn deserialize(_: &mut Buffer) -> Result<Self, IoError> {
+    fn deserialize(_: &mut Buffer, _: &CommonCircuitData<F, D>) -> Result<Self, IoError> {
         unimplemented!()
+    }
+
+    fn adapter(self) -> plonky2::iop::generator::SimpleGeneratorAdapter<F, Self, D>
+    where
+        Self: Sized,
+    {
+        plonky2::iop::generator::SimpleGeneratorAdapter {
+            inner: self,
+            _phantom: std::marker::PhantomData,
+        }
     }
 }
 pub fn print_fq_target<F: RichField + Extendable<D>, const D: usize>(

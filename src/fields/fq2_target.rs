@@ -11,7 +11,7 @@ use plonky2::{
         target::{BoolTarget, Target},
         witness::{PartitionWitness, Witness, WitnessWrite},
     },
-    plonk::circuit_builder::CircuitBuilder,
+    plonk::{circuit_builder::CircuitBuilder, circuit_data::CommonCircuitData},
     util::serialization::{Buffer, IoError},
 };
 use plonky2_ecdsa::gadgets::{
@@ -274,7 +274,7 @@ struct Fq2InverseGenerator<F: RichField + Extendable<D>, const D: usize> {
     inv: Fq2Target<F, D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     for Fq2InverseGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
@@ -312,10 +312,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         "Fq2InverseGenerator".to_string()
     }
 
-    fn serialize(&self, _: &mut Vec<u8>) -> Result<(), IoError> {
+    fn serialize(&self, _: &mut Vec<u8>, _: &CommonCircuitData<F, D>) -> Result<(), IoError> {
         unimplemented!()
     }
-    fn deserialize(_: &mut Buffer) -> Result<Self, IoError> {
+    fn deserialize(_: &mut Buffer, _: &CommonCircuitData<F, D>) -> Result<Self, IoError> {
         unimplemented!()
     }
 }
@@ -327,7 +327,9 @@ struct Fq2SqrtGenerator<F: RichField + Extendable<D>, const D: usize> {
     sqrt: Fq2Target<F, D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Fq2SqrtGenerator<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
+    for Fq2SqrtGenerator<F, D>
+{
     fn dependencies(&self) -> Vec<Target> {
         let mut x_vec = self
             .x
@@ -370,10 +372,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Fq2Sqr
         "Fq2SqrtGenerator".to_string()
     }
 
-    fn serialize(&self, _: &mut Vec<u8>) -> Result<(), IoError> {
+    fn serialize(&self, _: &mut Vec<u8>, _: &CommonCircuitData<F, D>) -> Result<(), IoError> {
         unimplemented!()
     }
-    fn deserialize(_: &mut Buffer) -> Result<Self, IoError> {
+    fn deserialize(_: &mut Buffer, _: &CommonCircuitData<F, D>) -> Result<Self, IoError> {
         unimplemented!()
     }
 }

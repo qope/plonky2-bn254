@@ -10,7 +10,7 @@ use plonky2::{
         target::{BoolTarget, Target},
         witness::{PartitionWitness, WitnessWrite},
     },
-    plonk::circuit_builder::CircuitBuilder,
+    plonk::{circuit_builder::CircuitBuilder, circuit_data::CommonCircuitData},
     util::serialization::{Buffer, IoError},
 };
 use plonky2_ecdsa::gadgets::{
@@ -233,7 +233,7 @@ struct Fq12InverseGenerator<F: RichField + Extendable<D>, const D: usize> {
     inv: Fq12Target<F, D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     for Fq12InverseGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
@@ -273,10 +273,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         "Fq12InverseGenerator".to_string()
     }
 
-    fn serialize(&self, _: &mut Vec<u8>) -> Result<(), IoError> {
+    fn serialize(&self, _: &mut Vec<u8>, _: &CommonCircuitData<F, D>) -> Result<(), IoError> {
         unimplemented!()
     }
-    fn deserialize(_: &mut Buffer) -> Result<Self, IoError> {
+    fn deserialize(_: &mut Buffer, _: &CommonCircuitData<F, D>) -> Result<Self, IoError> {
         unimplemented!()
     }
 }

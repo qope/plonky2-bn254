@@ -166,6 +166,7 @@ mod tests {
     use std::marker::PhantomData;
 
     use ark_bn254::{Fr, G1Affine};
+    use ark_ec::AffineRepr;
     use ark_std::UniformRand;
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
@@ -190,22 +191,60 @@ mod tests {
     const D: usize = 2;
 
     #[test]
-    fn test_g1_add() {
+    fn test_g1_add_conditional() {
         let rng = &mut rand::thread_rng();
         let a = G1Affine::rand(rng);
         let b = G1Affine::rand(rng);
-        let c_expected: G1Affine = (a + b).into();
+        let remove_a = true;
+        let remove_b = false;
+        let c_expected = match (remove_a, remove_b) {
+            (true, true) => G1Affine::zero(),
+            (true, false) => b,
+            (false, true) => a,
+            (false, false) => (a + b).into(),
+        };
 
         let config = CircuitConfig::standard_ecc_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let a_t = G1Target::constant(&mut builder, a);
-        let b_t = G1Target::constant(&mut builder, b);
+        let a_t = G1Target::empty(&mut builder);
+        let b_t = G1Target::empty(&mut builder);
+        let a_plus_b = a_t.add(&mut builder, &b_t);
+        let remove_at = builder.add_virtual_bool_target_safe();
+        let remove_bt = builder.add_virtual_bool_target_safe();
+        let minus_at = a_t.neg(&mut builder);
+        let minus_bt = b_t.neg(&mut builder);
+        // ct = a + b + (- a) * remove_at
+        let c_t = a_plus_b.conditional_add(&mut builder, &minus_at, &remove_at);
+        // a + b + (-a) * remove_at + (- b) * remove_ab
+        let final_res = c_t.conditional_add(&mut builder, &minus_bt, &remove_bt);
+        let expected_t = G1Target::constant(&mut builder, c_expected);
+        G1Target::connect(&mut builder, &expected_t, &final_res);
+
+        let mut pw = PartialWitness::new();
+        a_t.set_witness(&mut pw, &a);
+        b_t.set_witness(&mut pw, &b);
+        pw.set_bool_target(remove_at, remove_a);
+        pw.set_bool_target(remove_bt, remove_b);
+        let data = builder.build::<C>();
+        let _ = data.prove(pw).unwrap();
+    }
+
+    #[test]
+    fn test_g1_add_empty() {
+        let rng = &mut rand::thread_rng();
+        let a = G1Affine::rand(rng);
+
+        let config = CircuitConfig::standard_ecc_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let a_t = G1Target::empty(&mut builder);
+        let b_t = G1Target::empty(&mut builder);
         let c_t = a_t.add(&mut builder, &b_t);
-        let c_expected_t = G1Target::constant(&mut builder, c_expected);
+        // A + 0 = A
+        G1Target::connect(&mut builder, &c_t, &a_t);
 
-        G1Target::connect(&mut builder, &c_expected_t, &c_t);
-
-        let pw = PartialWitness::new();
+        let mut pw = PartialWitness::new();
+        a_t.set_witness(&mut pw, &a);
+        b_t.set_witness(&mut pw, &G1Affine::zero());
         let data = builder.build::<C>();
         let _ = data.prove(pw).unwrap();
     }

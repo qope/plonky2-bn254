@@ -163,6 +163,8 @@ impl<F: RichField + Extendable<D>, const D: usize> G1Target<F, D> {
 
 #[cfg(test)]
 mod tests {
+    use std::marker::PhantomData;
+
     use ark_bn254::{Fr, G1Affine};
     use ark_std::UniformRand;
     use plonky2::{
@@ -176,7 +178,10 @@ mod tests {
     use plonky2_ecdsa::gadgets::nonnative::CircuitBuilderNonNative;
     use rand::SeedableRng;
 
-    use crate::fields::fr_target::FrTarget;
+    use crate::{
+        curves::{init_logging, BN254GateSerializer, BN254GeneratorSerializer},
+        fields::fr_target::FrTarget,
+    };
 
     use super::G1Target;
 
@@ -202,7 +207,39 @@ mod tests {
 
         let pw = PartialWitness::new();
         let data = builder.build::<C>();
-        let _proof = data.prove(pw);
+        let _ = data.prove(pw).unwrap();
+    }
+
+    #[test]
+    fn test_serialization_g1_add() {
+        init_logging();
+        let rng = &mut rand::thread_rng();
+        let a = G1Affine::rand(rng);
+        let b = G1Affine::rand(rng);
+        let c_expected: G1Affine = (a + b).into();
+
+        let config = CircuitConfig::standard_ecc_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let a_t = G1Target::constant(&mut builder, a);
+        let b_t = G1Target::constant(&mut builder, b);
+        let c_t = a_t.add(&mut builder, &b_t);
+        let c_expected_t = G1Target::constant(&mut builder, c_expected);
+
+        G1Target::connect(&mut builder, &c_expected_t, &c_t);
+
+        let pw = PartialWitness::new();
+        let data = builder.build::<C>();
+        let _ = data.prove(pw).unwrap();
+        data.prover_only
+            .to_bytes(
+                &BN254GeneratorSerializer::<C, D> {
+                    _phantom: PhantomData,
+                },
+                &data.common,
+            )
+            .unwrap();
+        data.common.to_bytes(&BN254GateSerializer {}).unwrap();
+        data.verifier_only.to_bytes().unwrap();
     }
 
     #[test]

@@ -7,8 +7,8 @@ use plonky2::{
     iop::{target::Target, witness::WitnessWrite},
     plonk::circuit_builder::CircuitBuilder,
 };
+use plonky2_crypto::u32::gadgets::arithmetic_u32::U32Target;
 use plonky2_ecdsa::gadgets::biguint::BigUintTarget;
-use plonky2_u32::gadgets::arithmetic_u32::U32Target;
 
 use super::{fq_target::FqTarget, fr_target::FrTarget};
 

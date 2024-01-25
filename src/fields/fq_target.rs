@@ -13,11 +13,13 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, circuit_data::CommonCircuitData},
     util::serialization::{Buffer, IoError},
 };
+use plonky2_crypto::u32::gadgets::{
+    arithmetic_u32::U32Target, range_check::range_check_u32_circuit,
+};
 use plonky2_ecdsa::gadgets::{
     biguint::{BigUintTarget, GeneratedValuesBigUint, WitnessBigUint},
     nonnative::{CircuitBuilderNonNative, NonNativeTarget},
 };
-use plonky2_u32::gadgets::{arithmetic_u32::U32Target, range_check::range_check_u32_circuit};
 use std::marker::PhantomData;
 
 use crate::fields::{
